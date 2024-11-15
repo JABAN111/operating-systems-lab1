@@ -1,0 +1,40 @@
+name: Build and Lint
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Build the project
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Build Docker image
+        run: docker build -t lab1 .
+
+      - name: Build with Docker
+        run: |
+          docker run --rm lab1 g++ -std=c++17 -pthread -o /app/combined /app/combined.cpp
+          docker run --rm lab1 g++ -o /app/factorize /app/factorize.cpp
+          docker run --rm lab1 g++ -o /app/ema-sort-int /app/ema-sort-int.cpp
+
+  lint:
+    runs-on: ubuntu-latest
+    name: Run clang-tidy Linter
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Build Docker image for linting
+        run: docker build -t lab1 .
+
+      - name: Run clang-tidy on source code
+        run: |
+          docker run --rm lab1 bash -c "find /app -name '*.cpp' -exec clang-tidy {} -- -I/usr/include/c++/9 -I/usr/include/x86_64-linux-gnu/c++/9 \;"
