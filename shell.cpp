@@ -23,7 +23,7 @@ void executeCommand(const std::vector<std::string>& args) {
         perror("execvp failed");
         exit(1);
     }
-    if (pid > 0) {
+    else if (pid > 0) {
         int status;
         waitpid(pid, &status, 0);
         gettimeofday(&end, nullptr);

@@ -6,7 +6,10 @@
 #include <fstream>
 #include <algorithm>
 #include <queue>
+#include <filesystem>
 #include <unistd.h>
+#include <random>
+
 #include <sys/wait.h>
 
 // ---- Первое задание: Разложение числа на множители ----
@@ -51,17 +54,40 @@ void startFactorize(const long long number, const int iterations) {
 
 constexpr size_t BLOCK_SIZE = 32 * 1024 * 1024 / sizeof(int);
 
+// Предыдущая версия
+// void generateRandomFile(const std::string& filename, const size_t count) {
+//     std::ofstream outfile(filename);
+//     if (!outfile.is_open()) {
+//         std::cerr << "Error opening file for writing: " << filename << std::endl;
+//         exit(1);
+//     }
+//     for (size_t i = 0; i < count; ++i) {
+//         int num = rand() % 10000; // случайное число
+//         outfile << num << std::endl;
+//     }
+//     outfile.close();
+// }
+
 void generateRandomFile(const std::string& filename, const size_t count) {
-    std::ofstream outfile(filename);
-    if (!outfile.is_open()) {
-        std::cerr << "Error opening file for writing: " << filename << std::endl;
+    try {
+        // Устанавливаем флаги для выбрасывания исключений при ошибках
+        std::ofstream outfile(filename);
+        outfile.exceptions(std::ios::failbit | std::ios::badbit);
+
+        // Генератор случайных чисел
+        std::random_device rd;  // Источник случайности
+        std::mt19937 gen(rd());  // Генератор случайных чисел
+        std::uniform_int_distribution<> dis(0, 9999);  // Равномерное распределение от 0 до 9999
+
+        // Запись случайных чисел в файл
+        for (size_t i = 0; i < count; ++i) {
+            int num = dis(gen);  // Генерация случайного числа
+            outfile << num << std::endl;
+        }
+    } catch (const std::ios_base::failure& e) {
+        std::cerr << "I/O error: " << e.what() << std::endl;
         exit(1);
     }
-    for (size_t i = 0; i < count; ++i) {
-        int num = rand() % 10000; // случайное число
-        outfile << num << std::endl;
-    }
-    outfile.close();
 }
 
 std::vector<int> readBlock(std::ifstream& infile, size_t blockSize) {
@@ -74,22 +100,35 @@ std::vector<int> readBlock(std::ifstream& infile, size_t blockSize) {
     return data;
 }
 
-void writeBlock(const std::string& filename, const std::vector<int>& data) {
-    std::ofstream outfile(filename);
-    for (const auto& num : data) {
-        outfile << num << std::endl;
+void writeBlock(const std::filesystem::path& filename, const std::vector<int>& data) {
+    try {
+        std::ofstream outfile(filename);
+        if (!outfile.is_open()) {
+            std::cerr << "Error opening file for writing: " << filename << std::endl;
+            exit(1);
+        }
+
+        for (const auto& num : data) {
+            outfile << num << std::endl;
+        }
+    } catch (const std::ios_base::failure& e) {
+        std::cerr << "I/O error: " << e.what() << std::endl;
+        exit(1);
     }
 }
 
+
 void mergeFiles(const std::vector<std::string>& sortedFiles, const std::string& outputFile) {
+    using Pair = std::pair<int, int>;  // Псевдоним для std::pair<int, int>
+
     std::ofstream outfile(outputFile);
     std::vector<std::ifstream> streams;
     for (const auto& file : sortedFiles) {
         streams.emplace_back(file);
     }
 
-    auto compare = [](std::pair<int, int>& a, std::pair<int, int>& b) { return a.first > b.first; };
-    std::priority_queue<std::pair<int, int>, std::vector<std::pair<int, int>>, decltype(compare)> minHeap(compare);
+    auto compare = [](const Pair& a, const Pair& b) { return a.first > b.first; };  // Лямбда-функция для сравнения
+    std::priority_queue<Pair, std::vector<Pair>, decltype(compare)> minHeap(compare);  // Очередь с приоритетом
 
     for (int i = 0; i < streams.size(); ++i) {
         int num;
@@ -159,13 +198,13 @@ int main(int argc, char* argv[]) {
     const pid_t pid1 = vfork();
     if (pid1 == 0) {
         startFactorize(number, iterations);
-        _exit(0);
+        return 0;
     }
 
     const pid_t pid2 = vfork();
     if (pid2 == 0) {
         startEmaSort(sortInputFile, sortOutputFile, numElements);
-        _exit(0);
+        return 0;
     }
 
     int status;

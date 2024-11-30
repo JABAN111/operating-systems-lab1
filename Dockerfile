@@ -11,13 +11,25 @@ RUN apt-get update && apt-get install -y \
     make \
     clang-tidy \
     cmake \
-    git
+    git \
+    linux-tools-common \
+    linux-tools-generic \
+    linux-tools-5.4.0-146-generic \
+    time \
+    htop
 
 WORKDIR /app
 COPY . .
 
-RUN clang-tidy *.cpp -- -I/usr/include/c++/9 -I/usr/include/x86_64-linux-gnu/c++/9
-
+# Компиляция без оптимизации
 RUN g++ -std=c++17 -pthread -o combined combined.cpp
 RUN g++ -o factorize factorize.cpp
 RUN g++ -o ema-sort-int ema-sort-int.cpp
+
+WORKDIR /agressive_version
+COPY . .
+
+# Компиляция с агрессивной оптимизацией
+RUN g++ -std=c++17 -pthread -O3 -march=native -flto -o agr_combined combined.cpp
+RUN g++ -O3 -march=native -flto -o agr_factorize factorize.cpp
+RUN g++ -O3 -o agr_ema-sort-int ema-sort-int.cpp
